@@ -17,6 +17,9 @@ package com.amazon.ionhiveserde.objectinspectors.factories;
 
 import com.amazon.ionhiveserde.configuration.SerDeProperties;
 import com.amazon.ionhiveserde.objectinspectors.IonBooleanToBooleanObjectInspector;
+import com.amazon.ionhiveserde.objectinspectors.IonFieldNameToBigIntObjectInspector;
+import com.amazon.ionhiveserde.objectinspectors.IonFieldNameToIntObjectInspector;
+import com.amazon.ionhiveserde.objectinspectors.IonFieldNameToStringObjectInspector;
 import com.amazon.ionhiveserde.objectinspectors.IonFloatToDoubleObjectInspector;
 import com.amazon.ionhiveserde.objectinspectors.IonFloatToFloatObjectInspector;
 import com.amazon.ionhiveserde.objectinspectors.IonIntToBigIntObjectInspector;
@@ -86,6 +89,14 @@ public class IonObjectInspectorFactory {
         new IonTimestampToDateObjectInspector();
     private static final IonTimestampToTimestampObjectInspector TIMESTAMP_TO_TIMESTAMP_OBJECT_INSPECTOR =
         new IonTimestampToTimestampObjectInspector();
+
+    // Map Key Object Inspectors
+    private static final IonFieldNameToBigIntObjectInspector FIELD_NAME_TO_BIGINT_OBJECT_INSPECTOR =
+            new IonFieldNameToBigIntObjectInspector(true);
+    private static final IonFieldNameToIntObjectInspector FIELD_NAME_TO_INT_FAIL_OBJECT_INSPECTOR =
+            new IonFieldNameToIntObjectInspector(true);
+    private static final IonFieldNameToStringObjectInspector FIELD_NAME_TO_STRING_OBJECT_INSPECTOR =
+            new IonFieldNameToStringObjectInspector(true);
 
     /**
      * Creates an object inspector for the table correctly configured.
@@ -226,14 +237,17 @@ public class IonObjectInspectorFactory {
                 break;
             case MAP:
                 final MapTypeInfo mapTypeInfo = (MapTypeInfo) typeInfo;
-
+                final ObjectInspector keyObjectInspector = getMapKeyObjectInspector(
+                        mapTypeInfo,
+                        fieldName,
+                        serDeProperties);
                 // FIXME validate key must be string
                 final ObjectInspector valueObjectInspector = objectInspectorForField(
                     mapTypeInfo.getMapValueTypeInfo(),
                     fieldName,
                     serDeProperties);
 
-                objectInspector = new IonStructToMapObjectInspector(valueObjectInspector);
+                objectInspector = new IonStructToMapObjectInspector(keyObjectInspector, valueObjectInspector);
                 break;
 
             case LIST:
@@ -257,5 +271,33 @@ public class IonObjectInspectorFactory {
         }
 
         return objectInspector;
+    }
+
+    private static ObjectInspector getMapKeyObjectInspector(
+            final MapTypeInfo typeInfo,
+            final String fieldName,
+            final SerDeProperties serDeProperties) {
+        ObjectInspector objectInspector = null;
+        final boolean failOnOverflow = serDeProperties.failOnOverflowFor(fieldName);
+
+        switch (typeInfo.getMapKeyTypeInfo().getCategory()) {
+            case PRIMITIVE:
+                final PrimitiveTypeInfo mapKeyPrimitiveTypeInfo = (PrimitiveTypeInfo) typeInfo.getMapKeyTypeInfo();
+                switch (mapKeyPrimitiveTypeInfo.getPrimitiveCategory()) {
+                    case INT:
+                        objectInspector = FIELD_NAME_TO_INT_FAIL_OBJECT_INSPECTOR;
+                        break;
+                    case LONG:
+                        objectInspector = FIELD_NAME_TO_BIGINT_OBJECT_INSPECTOR;
+                        break;
+                    case STRING:
+                        objectInspector = FIELD_NAME_TO_STRING_OBJECT_INSPECTOR;
+                        break;
+                }
+                break;
+            default:
+                throw new UnsupportedOperationException("Unknown primitive category");
+        }
+        return  objectInspector;
     }
 }

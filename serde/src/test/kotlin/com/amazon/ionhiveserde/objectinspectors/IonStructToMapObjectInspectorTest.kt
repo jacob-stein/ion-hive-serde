@@ -19,18 +19,19 @@ import com.amazon.ion.IonStruct
 import com.amazon.ionhiveserde.ION
 import com.amazon.ionhiveserde.ionNull
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector.Category.MAP
-import org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory
+import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector.Category.PRIMITIVE
 import org.junit.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
 
 class IonStructToMapObjectInspectorTest {
+    private val keyElementInspector = com.amazon.ionhiveserde.objectinspectors.IonFieldNameToStringObjectInspector(true)
     private val valueElementInspector = com.amazon.ionhiveserde.objectinspectors.IonIntToIntObjectInspector(true)
-    private val subject = com.amazon.ionhiveserde.objectinspectors.IonStructToMapObjectInspector(valueElementInspector)
+    private val subject = com.amazon.ionhiveserde.objectinspectors.IonStructToMapObjectInspector(keyElementInspector, valueElementInspector)
 
     @Test
     fun getMapKeyObjectInspector() {
-        assertEquals(PrimitiveObjectInspectorFactory.javaStringObjectInspector, subject.mapKeyObjectInspector)
+        assertEquals(subject.mapKeyObjectInspector.category, PRIMITIVE)
     }
 
     @Test
